@@ -1,0 +1,40 @@
+---
+# We can tune downloader's timeout to avoid waiting for too long, drop connection if it hangs.
+download_timeout_sec: 10 # Time period in seconds.
+download_buffer_size: 32_768 # Limit the download buffer size, 32*1024 is default io.Copy size.
+
+# We can tune the reader to read optimally sized batches and align it with the processing pipeline.
+max_reader_buffer_size: 32_768 # Limit the file batch size, file is read in batches, 4096 is default bufio size.
+
+# We can tune the data processor to process data optimally depending on the instance performance.
+max_data_process_workers: 5 # Number of workers to process data concurrently.
+max_pipeline_size: 50 # Limit the number of elements that can be buffered in the pipeline before being processed.
+
+# We can tune the daemon to run the repetitive task at a specific interval.
+repetitive_task_interval_sec: 10 # Time period in seconds.
+
+# Logger settings.
+# TODO: implement logging and retry logic.
+errors_log: errors.txt # File to log errors.
+
+# Golang global settings.
+max_processors: 12 # Number of CPU cores to use.
+
+# Data source configuration.
+download_url:
+  - https://raw.githubusercontent.com/dbt-labs/jaffle-shop-classic/main/seeds/raw_customers.csv
+  - https://raw.githubusercontent.com/dbt-labs/jaffle-shop-classic/main/seeds/raw_orders.csv
+  - https://raw.githubusercontent.com/dbt-labs/jaffle-shop-classic/main/seeds/raw_payments.csv
+
+# Data source output configuration.
+output_file:
+  - raw_customers.csv
+  - raw_orders.csv
+  - raw_payments.csv
+
+combined_deals: deals_combined.csv
+combined_payments: payments_combined.csv
+
+# Pipedrive custom API field configuration.
+custom_customer_id_field_key: e9b0195d8a37ff2ffa0ed1e320838907e34c3140 # it's CustomerID custom key added to PipeDrive account.
+custom_order_id_field_key: a966b2ff81e2e054362de2093428fbc2bb417beb # it's OrderID custom key added to PipeDrive account.
