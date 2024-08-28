@@ -36,5 +36,6 @@ combined_deals: deals_combined.csv
 combined_payments: payments_combined.csv
 
 # Pipedrive custom API field configuration.
+# TODO: These keys are configuration placeholders, integrate these into the json annotations in the models for API.
 custom_customer_id_field_key: e9b0195d8a37ff2ffa0ed1e320838907e34c3140 # it's CustomerID custom key added to PipeDrive account.
 custom_order_id_field_key: a966b2ff81e2e054362de2093428fbc2bb417beb # it's OrderID custom key added to PipeDrive account.
