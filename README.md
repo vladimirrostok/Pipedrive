@@ -81,7 +81,7 @@ On the first run when we add deals to empty Pipedrive, Pipedrive internally gene
 
 Deals added to Pipedrive CRM have their own internally generated ID, so we must process every local deal we have with relevant data (combined.csv) against every deal object returned from the Pipedrive CRM. Because we have uploaded deal with Title as “LastName FirstName” from CSV file we have reliable mapping between these. We process it concurrently and if we have any new deal we pass them to the `newDeals` and `outOfSyncDeals` channels to the deals processor.
 
-### Extras and "Systemd Daemon"-like Daily Automation
+## Extras and "Systemd Daemon"-like Daily Automation
 
 The sync task is packed in a function, it is wrapped by the Daemon Runner to run this task as a background job to synchronize the data, the interval can be configured from the .yaml file and job will run forever in the background.
 
@@ -96,6 +96,15 @@ The Golang HTTP Client has standard http.Transport{} implementation with pool of
 ![Worker Pool](assets/worker_pool.jpeg)
 
 - **Since Readers return channels and Processor accepts and returns channels and Worker Pool has buffered channel of jobs, we can tune service for our performance needs with amount of workers and buffer size.**
+
+## !!! Pool and daemon synchronization
+
+Based on the assumption if we have similar amount of workers and jobs in queue, each request will be executed instantly with the timeout provided, meaning if timeout=10, every task will be executed within ~10 seconds, but it acts by timer(timeout\*3) formula for extra safety.
+
+## !!! Rate limiter in Pipedrive
+
+Based on experimental results, 5 concurrent HTTP requests work the best, each runs with 0-400 millisecond delay implemented with `time.Sleep(time.Duration(rand.Intn(300)+100) * time.Millisecond)
+`. This should give enough time to let worker finish the request and get back to pool to pick new request. If some of the jobs failed, next sync round will synchronize Pipedrive with new/missed data.
 
 ## Tools and configuration
 
@@ -113,8 +122,8 @@ The Golang HTTP Client has standard http.Transport{} implementation with pool of
 ### Configuration:
 
 1. Reliable YAML configuration
-2. HTTP client request timeout & buffer size
-3. reader batch size & size for buffered channels
+2. HTTP client request timeout & buffer size & max clients
+3. Reader batch size & size for buffered channels
 4. Workers jobs & results buffer size
 5. Interval for Daemon task runner
 6. TODO: ErrorsLogFile/Retry jobs file
@@ -122,7 +131,7 @@ The Golang HTTP Client has standard http.Transport{} implementation with pool of
 8. List of URLs and filenames to download data
 9. Name for the combined files
 10. Adjustable Pipedrive custom CustomerID and OrderID field hashes (TODO:)
-11. env PIPEDRIVE_API_KEY variable for API key
+11. **env PIPEDRIVE_API_KEY variable for API key**
 
 ## Out of scope
 

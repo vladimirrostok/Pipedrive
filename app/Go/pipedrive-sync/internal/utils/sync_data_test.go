@@ -87,7 +87,7 @@ var _ = Describe("Generic synchronizer", func() {
 					utils.SyncData(
 						ctx, downloadURL, outputFile, combinedDealsFile, combinedPaymentsFile,
 						mockProcessor, mockDownloader, mockReader, mockClient,
-						errChan)
+						10, errChan)
 				}()
 			}, 3)
 

@@ -16,6 +16,7 @@ import (
 
 func SyncData(ctx context.Context, downloadUrl, outputFile []string, combinedDealsFile, combinedPaymentsFile string,
 	processor processor.DataProcessor, dataDownloader downloader.Downloader, dataReader reader.DataReader, client HttpClient,
+	timeout int,
 	errChan chan error) {
 
 	zap.S().Info("The sync task is starting.")
@@ -55,18 +56,20 @@ func SyncData(ctx context.Context, downloadUrl, outputFile []string, combinedDea
 	// Run the parallel processing for the customers.
 	/* ******************************* */
 
-	syncPersons(outputFile, processor, dataReader, client, &wg, errChan)
+	syncPersons(outputFile, processor, dataReader, client, &wg, timeout, errChan)
 
 	/* ******************************* */
 	// Step 4: Sync the deals, we need to match raw data ID-s to real ID-s from Pipedrive.
 	// Run the parallel processing for the deals.
 	/* ******************************* */
 
-	syncDeals(combinedDealsFile, processor, dataReader, client, &wg, errChan)
+	syncDeals(combinedDealsFile, processor, dataReader, client, &wg, timeout, errChan)
 
 	// Run until all jobs are done.
 	wg.Wait()
-	zap.S().Info("The data processing daemon is running jobs in the background.")
+	zap.S().Info("The data processing daemon task just exited back to runner in 5s.")
+	// Make additional extra pause before the next run for the better demo.
+	time.Sleep(time.Second * 5)
 }
 
 func downloadFiles(downloadUrl, outputFile []string, dataDownloader downloader.Downloader, ctx context.Context, errChan chan error, wg *sync.WaitGroup) {
@@ -85,7 +88,7 @@ func downloadFiles(downloadUrl, outputFile []string, dataDownloader downloader.D
 	}
 }
 
-func syncPersons(outputFile []string, processor processor.DataProcessor, dataReader reader.DataReader, client HttpClient, wg *sync.WaitGroup, errChan chan error) {
+func syncPersons(outputFile []string, dataProcessor processor.DataProcessor, dataReader reader.DataReader, client HttpClient, wg *sync.WaitGroup, timeout int, errChan chan error) {
 	// Reuse HTTP client for all the API calls with a longer timeout than we passed in main.
 	allPersons := getAllPersons(client, errChan)
 
@@ -94,6 +97,12 @@ func syncPersons(outputFile []string, processor processor.DataProcessor, dataRea
 
 	// Read the incoming customers data in batches.
 	customers := dataReader.ReadCustomers(outputFile[0], 10)
+
+	// Prepare a channel for the results from the processor in beforehand.
+	// When we exit the function we close the channel to signal the end of the processing.
+	// This will also stop the goroutine that's reading from the channel.
+	results := make(chan processor.Result)
+	done := make(chan bool)
 
 	// Go through results we're receiving from the reader batch and data from Pipedrive.
 	go func() {
@@ -129,30 +138,53 @@ func syncPersons(outputFile []string, processor processor.DataProcessor, dataRea
 
 		// Any reader still reading from buffered channel will receive item until the channel is empty.
 		close(newCustomers)
+		zap.S().Infof("Exiting the persons processor in %d seconds", +timeout*3)
+
+		// When we read all the data, take x3 time from HTTP connection timeout
+		// and use this as a time to exit the function, this should be enough to
+		// process all the leftover data in the pool, if there is any.
+		// If workers pool has same size as jobs pool size, by x1 timeout every
+		// worker should quit already, x3 is to be extra sure.
+		// NB! it's hotfix for now before task deadline.
+		timeOut := time.After((time.Duration(timeout) * time.Second) * 3)
+		// Select without default is a blocking operation.
+		select {
+		case <-timeOut:
+			zap.S().Info("Exited the customer processing goroutine after x3 from HTTP timeout.")
+			done <- true
+			return
+		}
 	}()
 
 	wg.Add(1)
 	// Write new customers to the Pipedrive if some are out of sync.
-	done, results := processor.ProcessCustomers(newCustomers)
+	_, results = dataProcessor.ProcessCustomers(newCustomers)
 	go func() {
 		defer func() {
 			wg.Done()
 			zap.S().Info("Customer processing done, all jobs sent to worker pool if there were any.")
+			zap.S().Info("Gracefully exited persons sync function.")
 		}()
-		select {
-		case <-done:
-			break
-		case result := <-results:
-			if result.Error != nil {
-				zap.S().Warnf("Customer Job ID %s failed: %v ", result.JobID, result.Error)
-			} else {
-				zap.S().Infof("Customer Job ID %s succeeded: %v ", result.JobID, result.Status)
+
+	loop:
+		for {
+			select {
+			case result := <-results:
+				{
+					if result.Error != nil {
+						zap.S().Warnf("Deal Job ID %s failed: %v ", result.JobID, result.Error)
+					} else {
+						zap.S().Infof("Deal Job ID %s succeeded: %v ", result.JobID, result.Status)
+					}
+				}
+			case <-done:
+				break loop
 			}
 		}
 	}()
 }
 
-func syncDeals(combinedFile string, processor processor.DataProcessor, dataReader reader.DataReader, client HttpClient, wg *sync.WaitGroup, errChan chan error) {
+func syncDeals(combinedFile string, dataProcessor processor.DataProcessor, dataReader reader.DataReader, client HttpClient, wg *sync.WaitGroup, timeout int, errChan chan error) {
 	// Reuse HTTP client for all the API calls with a longer timeout than we passed in main.
 	allDeals := getAllDeals(client, errChan)
 
@@ -162,6 +194,14 @@ func syncDeals(combinedFile string, processor processor.DataProcessor, dataReade
 
 	// Read the incoming deals data in batches.
 	deals := dataReader.ReadDeals(combinedFile, 10)
+
+	// Prepare a channel for the results from the processor in beforehand.
+	// When we exit the function we close the channel to signal the end of the processing.
+	// This will also stop the goroutine that's reading from the channel.
+	results := make(chan processor.Result)
+	outOfSyncResults := make(chan processor.Result)
+	resultsDone := make(chan bool)
+	outOfSyncResultsDone := make(chan bool)
 
 	go func() {
 		zap.S().Info("Processing deals to see if we need to sync any.")
@@ -205,47 +245,79 @@ func syncDeals(combinedFile string, processor processor.DataProcessor, dataReade
 				}
 			}
 		}
+
 		// Any reader still reading from buffered channel will receive item until the channel is empty.
 		close(newDeals)
 		close(outOfSyncDeals)
+		zap.S().Infof("Exiting the deals processor in %d seconds", +timeout*3)
+
+		// When we read all the data, take x3 time from HTTP connection timeout
+		// and use this as a time to exit the function, this should be enough to
+		// process all the leftover data in the pool, if there is any.
+		// If workers pool has same size as jobs pool size, by x1 timeout every
+		// worker should quit already, x3 is to be extra sure.
+		// NB! it's hotfix for now before task deadline.
+		timeOut := time.After((time.Duration(timeout) * time.Second) * 3)
+		// Select without default is a blocking operation.
+		select {
+		case <-timeOut:
+			zap.S().Info("Exited the deals processing goroutine after x3 from HTTP timeout.")
+			resultsDone <- true
+			outOfSyncResultsDone <- true
+			return
+		}
+
 	}()
 
 	wg.Add(1)
 	// Write new deals to the Pipedrive if some are out of sync.
-	dealsDone, dealResults := processor.ProcessDeals(newDeals)
+	_, results = dataProcessor.ProcessDeals(newDeals)
 	go func() {
 		defer func() {
 			wg.Done()
 			zap.S().Info("Deal processing done, all jobs sent to pool if there were any.")
+			zap.S().Info("Gracefully exited deals sync function.")
 		}()
-		select {
-		case <-dealsDone:
-			break
-		case result := <-dealResults:
-			if result.Error != nil {
-				zap.S().Warnf("Deal Job ID %s failed: %v ", result.JobID, result.Error)
-			} else {
-				zap.S().Infof("Deal Job ID %s succeeded: %v ", result.JobID, result.Status)
+
+	loop:
+		for {
+			select {
+			case result := <-results:
+				{
+					if result.Error != nil {
+						zap.S().Warnf("Deal Job ID %s failed: %v ", result.JobID, result.Error)
+					} else {
+						zap.S().Infof("Deal Job ID %s succeeded: %v ", result.JobID, result.Status)
+					}
+				}
+			case <-resultsDone:
+				break loop
 			}
 		}
 	}()
 
 	wg.Add(1)
 	// Write new deals to the Pipedrive if some are out of sync.
-	dealSyncDone, dealSyncResults := processor.ProcessOutOfSyncDeals(outOfSyncDeals)
+	_, outOfSyncResults = dataProcessor.ProcessOutOfSyncDeals(outOfSyncDeals)
 	go func() {
 		defer func() {
 			wg.Done()
 			zap.S().Info("Deal updating done, all jobs sent to pool if there were any.")
+			zap.S().Info("Gracefully exited out of date deals sync function.")
 		}()
-		select {
-		case <-dealSyncDone:
-			break
-		case result := <-dealSyncResults:
-			if result.Error != nil {
-				zap.S().Warnf("Deal Sync Job ID %s failed: %v ", result.JobID, result.Error)
-			} else {
-				zap.S().Infof("Deal Sync Job ID %s succeeded: %v ", result.JobID, result.Status)
+	loop:
+		for {
+			select {
+			case result := <-outOfSyncResults:
+				{
+					if result.Error != nil {
+						zap.S().Warnf("Deal Job ID %s failed: %v ", result.JobID, result.Error)
+					} else {
+						zap.S().Infof("Deal Job ID %s succeeded: %v ", result.JobID, result.Status)
+					}
+				}
+			case <-outOfSyncResultsDone:
+				break loop
 			}
 		}
 	}()

@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"pipedrive-sync/pipedrive-sync/internal/model"
 	"pipedrive-sync/pipedrive-sync/internal/processor"
-	"sync"
 )
 
 // We can use this struct to implement the DataProcessor interface and set limits for the data processing.
@@ -35,11 +34,9 @@ func (p PipelineProcessor) ProcessPayments(data <-chan model.Payment) (chan bool
 func (p PipelineProcessor) ProcessCustomers(data <-chan model.Customer) (chan bool, chan processor.Result) {
 	// We return the results channel immediately so we run processing in the goroutine.
 	done := make(chan bool)
-	wg := sync.WaitGroup{}
 
 	go func() {
 		for d := range data {
-			wg.Add(1)
 			go func() {
 				// Prepare the data for the request.
 				values := map[string]string{
@@ -70,11 +67,8 @@ func (p PipelineProcessor) ProcessCustomers(data <-chan model.Customer) (chan bo
 
 				// Push job to the worker pool.
 				p.HttpWorkerPool.addCustomerJob(Job{ID: "Add customer: " + d.ID, Request: req})
-				wg.Done()
 			}()
 		}
-		wg.Wait()
-		close(done)
 	}()
 
 	return done, p.HttpWorkerPool.CustomerResults
@@ -83,11 +77,9 @@ func (p PipelineProcessor) ProcessCustomers(data <-chan model.Customer) (chan bo
 func (p PipelineProcessor) ProcessDeals(data <-chan model.Deal) (chan bool, chan processor.Result) {
 	// We return the results channel immediately so we run processing in the goroutine.
 	done := make(chan bool)
-	wg := sync.WaitGroup{}
 
 	go func() {
 		for d := range data {
-			wg.Add(1)
 			go func() {
 				// Prepare the data for the request.
 				// Task says: Deals should have a Title of “LastName FirstName”.
@@ -122,11 +114,8 @@ func (p PipelineProcessor) ProcessDeals(data <-chan model.Deal) (chan bool, chan
 
 				// Push job to the worker pool.
 				p.HttpWorkerPool.addDealJob(Job{ID: "Add deal: " + (d.CustomerLastName + " " + d.CustomerFirstName), Request: req})
-				wg.Done()
 			}()
 		}
-		wg.Wait()
-		close(done)
 	}()
 
 	return done, p.HttpWorkerPool.DealResults
@@ -135,11 +124,8 @@ func (p PipelineProcessor) ProcessDeals(data <-chan model.Deal) (chan bool, chan
 func (p PipelineProcessor) ProcessOutOfSyncDeals(data <-chan model.Deal) (chan bool, chan processor.Result) {
 	// We return the results channel immediately so we run processing in the goroutine.
 	done := make(chan bool)
-	wg := sync.WaitGroup{}
-
 	go func() {
 		for d := range data {
-			wg.Add(1)
 			go func() {
 				// Prepare the data for the request.
 				values := map[string]string{
@@ -168,11 +154,8 @@ func (p PipelineProcessor) ProcessOutOfSyncDeals(data <-chan model.Deal) (chan b
 
 				// Push job to the worker pool.
 				p.HttpWorkerPool.addPatchDealJob(Job{ID: "Patch deal : " + (d.CustomerLastName + " " + d.CustomerFirstName), Request: req})
-				wg.Done()
 			}()
 		}
-		wg.Wait()
-		close(done)
 	}()
 
 	return done, p.HttpWorkerPool.PatchDealResults

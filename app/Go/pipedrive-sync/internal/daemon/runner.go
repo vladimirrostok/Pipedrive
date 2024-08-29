@@ -13,7 +13,7 @@ import (
 )
 
 func RunDaemon(ctx context.Context, dataDownloader downloader.Downloader, dataReader reader.DataReader, dataProcessor processor.DataProcessor, client utils.HttpClient,
-	downloadURL, outputFile []string, combinedDealsFile, combinedPaymentsFile string, interval int, errChan chan error) {
+	downloadURL, outputFile []string, combinedDealsFile, combinedPaymentsFile string, interval int, timeout int, errChan chan error) {
 	// Create a WaitGroup to keep track of running goroutines.
 	var wg sync.WaitGroup
 
@@ -23,7 +23,7 @@ func RunDaemon(ctx context.Context, dataDownloader downloader.Downloader, dataRe
 		zap.S().Infof("Starting the repetitive data processor service, aka daemon.")
 
 		// Run the data processor periodically like a daemon as alternative to cron job.
-		runRepetitiveSyncRunner(ctx, downloadURL, outputFile, combinedDealsFile, combinedPaymentsFile, dataProcessor, dataDownloader, dataReader, client, time.Duration(interval)*time.Second, errChan)
+		runRepetitiveSyncRunner(ctx, downloadURL, outputFile, combinedDealsFile, combinedPaymentsFile, dataProcessor, dataDownloader, dataReader, client, interval, timeout, errChan)
 		wg.Done()
 	}()
 
@@ -36,12 +36,12 @@ func RunDaemon(ctx context.Context, dataDownloader downloader.Downloader, dataRe
 func runRepetitiveSyncRunner(
 	ctx context.Context, downloadURL, outputFile []string, combinedDealsFile, combinedPaymentsFile string,
 	processor processor.DataProcessor, dataDownloader downloader.Downloader, dataReader reader.DataReader, client utils.HttpClient,
-	d time.Duration, errChan chan error) {
+	interval, timeout int, errChan chan error) {
 
 	zap.S().Info("Starting the repetitive task runner.")
 
 	// Create a ticker that will repeat the task every passed duration.
-	ticker := time.NewTicker(d)
+	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 	defer func() {
 		ticker.Stop()
 		/*
@@ -59,7 +59,7 @@ func runRepetitiveSyncRunner(
 		// Run the task on first go immediately after we initialized the ticker.
 		go func() {
 			mu.Lock()
-			utils.SyncData(ctx, downloadURL, outputFile, combinedDealsFile, combinedPaymentsFile, processor, dataDownloader, dataReader, client, errChan)
+			utils.SyncData(ctx, downloadURL, outputFile, combinedDealsFile, combinedPaymentsFile, processor, dataDownloader, dataReader, client, timeout, errChan)
 			mu.Unlock()
 		}()
 
@@ -78,7 +78,7 @@ func runRepetitiveSyncRunner(
 				zap.S().Warn("The previous task is still running, skipping the current run.")
 			} else {
 				// Run the task if it's not running already.
-				utils.SyncData(ctx, downloadURL, outputFile, combinedDealsFile, combinedPaymentsFile, processor, dataDownloader, dataReader, client, errChan)
+				utils.SyncData(ctx, downloadURL, outputFile, combinedDealsFile, combinedPaymentsFile, processor, dataDownloader, dataReader, client, timeout, errChan)
 				mu.Unlock()
 			}
 		}

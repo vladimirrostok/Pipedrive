@@ -9,10 +9,16 @@ max_reader_buffer_size: 32_768 # Limit the file batch size, file is read in batc
 # We can tune the data processor to process data optimally depending on the instance performance.
 max_data_process_workers: 5 # Number of workers to process data concurrently.
 max_http_client_connections: 1 # Number of HTTP client connections to use concurrently.
+
+# NB! We force sync function to wait x3 of timeout time after all jobs were sent to worker pool
+# to ensure all jobs are processed before the function exits.
+# If we keep pipeline size as max_workers, that means we don't have extra buffer so that
+# there won't be any jobs left in the pipeline to be processed by this time.
+max_http_client_timeout: 5 # Time period in seconds.
 max_pipeline_size: 5 # Limit the number of elements that can be buffered in the pipeline before being processed.
 
 # We can tune the daemon to run the repetitive task at a specific interval.
-repetitive_task_interval_sec: 60 # Time period in seconds.
+repetitive_task_interval_sec: 20 # Time period in seconds.
 
 # Logger settings.
 # TODO: implement logging and retry logic.

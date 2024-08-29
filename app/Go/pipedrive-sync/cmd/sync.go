@@ -140,7 +140,7 @@ func main() {
 	// Create the pre-configured HTTP client with the HTTP request timeout.
 	// Go handles pool of HTTP connections inside the client thus we can use single instance of it.
 	httpClient := http.Client{
-		Timeout:   time.Duration(cfg.DownloadTimeoutSec) * time.Second,
+		Timeout:   time.Duration(cfg.MaxHTTPClientTimeout) * time.Second,
 		Transport: &http.Transport{MaxConnsPerHost: cfg.MaxHTTTPClentConnections},
 	}
 
@@ -186,6 +186,6 @@ func main() {
 		ctx,
 		dataDownloader, dataReader, dataProcessor, &httpClient,
 		cfg.DownloadURL, cfg.OutputFile, cfg.CombinedDealsFile, cfg.CombinedPaymentsFile,
-		cfg.RepetitiveTaskIntervalSec,
+		cfg.RepetitiveTaskIntervalSec, cfg.MaxHTTPClientTimeout,
 		errChan)
 }

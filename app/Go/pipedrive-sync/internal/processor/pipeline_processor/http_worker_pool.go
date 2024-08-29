@@ -3,6 +3,7 @@ package pipeline_processor
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"pipedrive-sync/pipedrive-sync/internal/processor"
 	"pipedrive-sync/pipedrive-sync/internal/utils"
@@ -43,7 +44,7 @@ func (w HttpWorkerPool) worker() {
 			// We use the pre-configured HTTP client to execute the request.
 
 			// Hotfix to avoid 429 Too Many requests error with simple time sleep.
-			time.Sleep(time.Millisecond * 200)
+			time.Sleep(time.Duration(rand.Intn(300)+100) * time.Millisecond)
 			resp, err := w.client.Do(job.Request)
 			if err != nil {
 				w.errChan <- fmt.Errorf("error in the AddCustomer worker job %s %s", job.ID, err)
@@ -61,7 +62,7 @@ func (w HttpWorkerPool) worker() {
 			// We use the pre-configured HTTP client to execute the request.
 
 			// Hotfix to avoid 429 Too Many requests error with simple time sleep.
-			time.Sleep(time.Millisecond * 200)
+			time.Sleep(time.Duration(rand.Intn(300)+100) * time.Millisecond)
 			resp, err := w.client.Do(job.Request)
 			if err != nil {
 				w.errChan <- fmt.Errorf("error in the AddDeal worker job %s %s", job.ID, err)
@@ -76,11 +77,10 @@ func (w HttpWorkerPool) worker() {
 		// Use waitgroup from the pool to wait for all the jobs and close it when done.
 		defer w.wg.Done()
 		for job := range w.PatchDealJobs {
-			time.Sleep(time.Millisecond * 200)
 			// We use the pre-configured HTTP client to execute the request.
 
 			// Hotfix to avoid 429 Too Many requests error with simple time sleep.
-			time.Sleep(time.Millisecond * 200)
+			time.Sleep(time.Duration(rand.Intn(300)+100) * time.Millisecond)
 			resp, err := w.client.Do(job.Request)
 			if err != nil {
 				w.errChan <- fmt.Errorf("error in the PatchDeal worker job %s %s", job.ID, err)
