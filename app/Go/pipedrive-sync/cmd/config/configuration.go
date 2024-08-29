@@ -7,8 +7,9 @@ type Config struct {
 
 	MaxReaderBufferSize int `mapstructure:"max_reader_buffer_size"`
 
-	MaxDataProcessWorkers int `mapstructure:"max_data_process_workers"`
-	MaxPipelineSize       int `mapstructure:"max_pipeline_size"`
+	MaxDataProcessWorkers    int `mapstructure:"max_data_process_workers"`
+	MaxHTTTPClentConnections int `mapstructure:"max_http_client_connections"`
+	MaxPipelineSize          int `mapstructure:"max_pipeline_size"`
 
 	RepetitiveTaskIntervalSec int `mapstructure:"repetitive_task_interval_sec"`
 

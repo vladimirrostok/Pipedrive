@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"net/http"
 	"pipedrive-sync/pipedrive-sync/internal/processor"
+	"pipedrive-sync/pipedrive-sync/internal/utils"
 	"sync"
+	"time"
 )
 
 // We use worker pool to control the maximum amount of goroutines.
 type HttpWorkerPool struct {
 	Ctx context.Context
 	// Go handles pool of HTTP connections inside the client so we can use single instance of it.
-	client           *http.Client
+	client           utils.HttpClient
 	errChan          chan error
 	CustomerJobs     chan Job
 	DealJobs         chan Job
@@ -39,6 +41,9 @@ func (w HttpWorkerPool) worker() {
 		defer w.wg.Done()
 		for job := range w.CustomerJobs {
 			// We use the pre-configured HTTP client to execute the request.
+
+			// Hotfix to avoid 429 Too Many requests error with simple time sleep.
+			time.Sleep(time.Millisecond * 200)
 			resp, err := w.client.Do(job.Request)
 			if err != nil {
 				w.errChan <- fmt.Errorf("error in the AddCustomer worker job %s %s", job.ID, err)
@@ -54,6 +59,9 @@ func (w HttpWorkerPool) worker() {
 		defer w.wg.Done()
 		for job := range w.DealJobs {
 			// We use the pre-configured HTTP client to execute the request.
+
+			// Hotfix to avoid 429 Too Many requests error with simple time sleep.
+			time.Sleep(time.Millisecond * 200)
 			resp, err := w.client.Do(job.Request)
 			if err != nil {
 				w.errChan <- fmt.Errorf("error in the AddDeal worker job %s %s", job.ID, err)
@@ -68,7 +76,11 @@ func (w HttpWorkerPool) worker() {
 		// Use waitgroup from the pool to wait for all the jobs and close it when done.
 		defer w.wg.Done()
 		for job := range w.PatchDealJobs {
+			time.Sleep(time.Millisecond * 200)
 			// We use the pre-configured HTTP client to execute the request.
+
+			// Hotfix to avoid 429 Too Many requests error with simple time sleep.
+			time.Sleep(time.Millisecond * 200)
 			resp, err := w.client.Do(job.Request)
 			if err != nil {
 				w.errChan <- fmt.Errorf("error in the PatchDeal worker job %s %s", job.ID, err)
