@@ -50,7 +50,7 @@ func (p PipelineProcessor) ProcessCustomers(data <-chan model.Customer) (chan bo
 
 				jsonValue, err := json.Marshal(values)
 				if err != nil {
-					p.ErrChan <- fmt.Errorf("error encoding JSON request %s %s", err)
+					p.ErrChan <- fmt.Errorf("error encoding JSON request %s ", err)
 				}
 
 				// Create a new HTTP request with the context, so we can cancel all the ongoing requests if needed.
@@ -102,7 +102,7 @@ func (p PipelineProcessor) ProcessDeals(data <-chan model.Deal) (chan bool, chan
 
 				jsonValue, err := json.Marshal(values)
 				if err != nil {
-					p.ErrChan <- fmt.Errorf("error encoding JSON request %s %s", err)
+					p.ErrChan <- fmt.Errorf("error encoding JSON request %s ", err)
 				}
 
 				// Create a new HTTP request with the context, so we can cancel all the ongoing requests if needed.
@@ -148,7 +148,7 @@ func (p PipelineProcessor) ProcessOutOfSyncDeals(data <-chan model.Deal) (chan b
 
 				jsonValue, err := json.Marshal(values)
 				if err != nil {
-					p.ErrChan <- fmt.Errorf("error encoding JSON request %s %s", err)
+					p.ErrChan <- fmt.Errorf("error encoding JSON request %s ", err)
 				}
 
 				// Create a new HTTP request with the context, so we can cancel all the ongoing requests if needed.
