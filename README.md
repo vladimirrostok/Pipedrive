@@ -155,7 +155,7 @@ Go to the [/app/Go/](/app/Go/) and execute the `docker-compose up --build`
 
 ## Build the pipedrive-sync service Dockerfile manually
 
-Go to the [/app/Go/](/app/Go/) and build the container using `docker build --no-cache -f pipedrive-sync/Dockerfile . -t pipedrive-sync-image` and run this as `docker run -t pipedrive-sync-image` to launch the built image.
+Go to the [/app/Go/](/app/Go/) and build the container using `docker build --no-cache -f pipedrive-sync/Dockerfile . -t pipedrive-sync-image --build-arg PIPEDRIVE_API_SECRET=000000000000000000000000000000` and run this as `docker run -t pipedrive-sync-image` to launch the built image.
 
 NB! `go.sum` file is located at the `/Go/` directory while the Dockerfile is located at the `/Go/pipedrive-sync/` directory, so we execute `build` command from the directory with `go.sum` file directory which is a `/Go`/ directory and point to Dockerfile with `-f` flag, executing from local (go.sum file) context `.` and naming the container with `-t` flag.
 
