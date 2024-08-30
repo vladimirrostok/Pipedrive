@@ -144,6 +144,11 @@ Based on experimental results, 5 concurrent HTTP requests work the best, each ru
 7. Implement complete pagination reader for Pipedrive HTTP API + add YAML configuration for Size and Limit
 8. Thorough tests
 
+## TODO:
+
+Finish synchronization between worker pool and service running it, we should use channel to signal when all requests finished, not just make an assumption on the required time to finish it.
+Also pass the reader, worker, and other components by reference, we don't really need many copies of the OS file reader or runners.
+
 # Summary
 
 It's Test task for Data Platform Engineer.
