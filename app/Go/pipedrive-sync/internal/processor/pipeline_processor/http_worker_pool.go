@@ -33,6 +33,7 @@ type Job struct {
 	Request *http.Request
 }
 
+// TODO: refactor the logic to fit exact parallelism required, read README.
 // The worker function processes the job and sends the result to the Results channel.
 func (w HttpWorkerPool) worker() {
 	// We iterate over the channels of incoming jobs and jobs limited by pool so we just run them concurrently.
@@ -115,6 +116,7 @@ func (w HttpWorkerPool) NewWorkerPool(ctx context.Context, errChan chan error, n
 	return pool
 }
 
+// TODO: refactor the logic to fit exact parallelism required, read README.
 func (w HttpWorkerPool) createWorkerPool(numWorkers int) {
 	for i := 1; i <= numWorkers; i++ {
 		w.wg.Add(3) // We have 3 different types of job channels so we need more tokens.

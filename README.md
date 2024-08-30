@@ -149,6 +149,10 @@ Based on experimental results, 5 concurrent HTTP requests work the best, each ru
 Finish synchronization between worker pool and service running it, we should use channel to signal when all requests finished, not just make an assumption on the required time to finish it.
 Also pass the reader, worker, and other components by reference, we don't really need many copies of the OS file reader or runners.
 
+## TODO: Worker pool's goroutine task runner logic
+
+Currently there are 3 goroutines in the worker pool spamming 3 different Pipedrive endpoints simultaneously each with `random timeout` simple rate limiter logic implementation, probably we can pack all this runner in a separate "3channel parallel spammer" and we control count of these in the pool, or we unblock the execution inside workers and limit total amount of connections to 'total_pool_concurrent_connections' instead.
+
 # Summary
 
 It's Test task for Data Platform Engineer.
