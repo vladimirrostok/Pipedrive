@@ -144,7 +144,8 @@ Based on experimental results, 5 concurrent HTTP requests work the best, each ru
 7. Implement complete pagination reader for Pipedrive HTTP API + add YAML configuration for Size and Limit
 8. Thorough tests
 9. [GOMEMLIMIT](https://pkg.go.dev/runtime) adjustment for specific setup
-10. [GOGC](https://tip.golang.org/doc/gc-guide#GOGC) adjustment for specific setup
+10. [GOGC](https://tip.golang.org/doc/gc-guide#GOGC) adjustment for specific setup]
+11. Code profiling/pre-allocating slice capacities/reusing objects/pointers vs object copying
 
 ## TODO:
 
