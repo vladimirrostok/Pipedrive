@@ -146,6 +146,9 @@ Based on experimental results, 5 concurrent HTTP requests work the best, each ru
 9. [GOMEMLIMIT](https://pkg.go.dev/runtime) adjustment for specific setup
 10. [GOGC](https://tip.golang.org/doc/gc-guide#GOGC) adjustment for specific setup]
 11. Code profiling/pre-allocating slice capacities/reusing objects/pointers vs object copying
+12. Implement IP pool for workers pool to avoid rate limiter from the Pipedrive API and synchronize these to finish the real dynamic self-adjusting rate limited worker pool as an end goal of this concept. That's commonly used for SMTP senders where you have IP reputation, different IP-s for business/spam emails and implementations for dynamic logic for custom complex rate-limiters.
+
+- This can be further extended with custom mutexes/RW mutexes/orderer mutexes for synchronization, or controls like GOSCHED for 'channel' workers to avoid goroutine starvation and other nuances.
 
 ## TODO:
 
